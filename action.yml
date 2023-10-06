@@ -55,7 +55,7 @@ runs:
       run: |
         # Allow core dumps
         ulimit -c unlimited
-        sudo ${{ github.action_path }}/entrypoint.sh ${{ inputs.apt-dependencies }} ${{ inputs.codecov-enabled }} ${{ inputs.codecov-token-private-repos }} ${{ inputs.codecov-token }} ${{ inputs.cmake-args }} ${{ inputs.doxygen-enabled }} ${{ inputs.tests-enabled }} ${{ inputs.cpplint-enabled }} ${{ inputs.cppcheck-enabled }}
+        sudo -E ${{ github.action_path }}/entrypoint.sh ${{ inputs.apt-dependencies }} ${{ inputs.codecov-enabled }} ${{ inputs.codecov-token-private-repos }} ${{ inputs.codecov-token }} ${{ inputs.cmake-args }} ${{ inputs.doxygen-enabled }} ${{ inputs.tests-enabled }} ${{ inputs.cpplint-enabled }} ${{ inputs.cppcheck-enabled }}
         sudo chmod 777 /cores
       shell: bash
     - uses: actions/upload-artifact@v3
