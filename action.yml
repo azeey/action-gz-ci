@@ -2,9 +2,6 @@ name: 'Ignition install'
 description: ''
 author: "Louise Poubel"
 inputs:
-  github_token:
-    description: "Token for the repo. Can be passed in using {{ secrets.GITHUB_TOKEN }}"
-    required: true
   apt-dependencies:
     description: 'Dependencies to apt install'
     required: false
@@ -43,15 +40,23 @@ inputs:
     required: false
     default: 'false'
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.apt-dependencies }}
-    - ${{ inputs.codecov-enabled }}
-    - ${{ inputs.codecov-token-private-repos }}
-    - ${{ inputs.codecov-token }}
-    - ${{ inputs.cmake-args }}
-    - ${{ inputs.doxygen-enabled }}
-    - ${{ inputs.tests-enabled }}
-    - ${{ inputs.cpplint-enabled }}
-    - ${{ inputs.cppcheck-enabled }}
+  using: 'composite'
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Set cores to get stored in /cores
+      run: |
+        mkdir /cores
+        # Core filenames will be of the form executable.pid.timestamp:
+        bash -c 'echo "/cores/%e.%p.%t" > /proc/sys/kernel/core_pattern'
+    - name: Compile and test
+      run: |
+        # Allow core dumps
+        ulimit -c unlimited
+        ${{ github.action_path }}/entrypoint.sh ${{ inputs.apt-dependencies }} ${{ inputs.codecov-enabled }} ${{ inputs.codecov-token-private-repos }} ${{ inputs.codecov-token }} ${{ inputs.cmake-args }} ${{ inputs.doxygen-enabled }} ${{ inputs.tests-enabled }} ${{ inputs.cpplint-enabled }} ${{ inputs.cppcheck-enabled }}
+      shell: bash
+    - uses: actions/upload-artifact@v3
+      if: ${{ failure() }}  # Run only if something went wrong
+      with:
+        name: Core Dumps
+        path: /cores
