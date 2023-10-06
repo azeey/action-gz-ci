@@ -46,14 +46,17 @@ runs:
       uses: actions/checkout@v3
     - name: Set cores to get stored in /cores
       run: |
-        mkdir /cores
+        sudo mkdir /cores
         # Core filenames will be of the form executable.pid.timestamp:
-        bash -c 'echo "/cores/%e.%p.%t" > /proc/sys/kernel/core_pattern'
+        sudo bash -c 'echo "/cores/%e.%p.%t" > /proc/sys/kernel/core_pattern'
+        sudo chmod 777 /cores
+      shell: bash
     - name: Compile and test
       run: |
         # Allow core dumps
         ulimit -c unlimited
-        ${{ github.action_path }}/entrypoint.sh ${{ inputs.apt-dependencies }} ${{ inputs.codecov-enabled }} ${{ inputs.codecov-token-private-repos }} ${{ inputs.codecov-token }} ${{ inputs.cmake-args }} ${{ inputs.doxygen-enabled }} ${{ inputs.tests-enabled }} ${{ inputs.cpplint-enabled }} ${{ inputs.cppcheck-enabled }}
+        sudo ${{ github.action_path }}/entrypoint.sh ${{ inputs.apt-dependencies }} ${{ inputs.codecov-enabled }} ${{ inputs.codecov-token-private-repos }} ${{ inputs.codecov-token }} ${{ inputs.cmake-args }} ${{ inputs.doxygen-enabled }} ${{ inputs.tests-enabled }} ${{ inputs.cpplint-enabled }} ${{ inputs.cppcheck-enabled }}
+        sudo chmod 777 /cores
       shell: bash
     - uses: actions/upload-artifact@v3
       if: ${{ failure() }}  # Run only if something went wrong
