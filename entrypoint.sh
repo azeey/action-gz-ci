@@ -181,7 +181,8 @@ if [ -f "$SCRIPT_BETWEEN_CMAKE_MAKE" ] || [ -f "$SCRIPT_BETWEEN_CMAKE_MAKE_VERSI
 fi
 
 echo ::group::make
-make -j4
+# TODO: Disable parallel jobs for gz-physics
+make -j2
 echo ::endgroup::
 
 if [ -f "$SCRIPT_AFTER_MAKE" ] || [ -f "$SCRIPT_AFTER_MAKE_VERSIONED" ] ; then
