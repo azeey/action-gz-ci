@@ -61,5 +61,5 @@ runs:
     - uses: actions/upload-artifact@v3
       if: ${{ failure() }}  # Run only if something went wrong
       with:
-        name: Core Dumps
+        name: "${{ github.job }} Core Dumps"
         path: /cores
