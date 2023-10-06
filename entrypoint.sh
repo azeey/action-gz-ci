@@ -58,11 +58,85 @@ SCRIPT_AFTER_MAKE_VERSIONED="`pwd`/.github/ci-$SYSTEM_VERSION/after_make.sh"
 SCRIPT_AFTER_MAKE_TEST="`pwd`/.github/ci/after_make_test.sh"
 SCRIPT_AFTER_MAKE_TEST_VERSIONED="`pwd`/.github/ci-$SYSTEM_VERSION/after_make_test.sh"
 
+# Infer package name from GITHUB_REPOSITORY
+PACKAGE=$(echo "$GITHUB_REPOSITORY" | sed 's:.*/::')
+wget https://raw.githubusercontent.com/gazebo-tooling/release-tools/master/jenkins-scripts/tools/detect_cmake_major_version.py
+PACKAGE_MAJOR_VERSION=$(python3 detect_cmake_major_version.py "$GITHUB_WORKSPACE"/CMakeLists.txt)
+
+# Check for ci_matching_branch in gzdev
+wget https://raw.githubusercontent.com/gazebo-tooling/release-tools/master/jenkins-scripts/tools/detect_ci_matching_branch.py
+if python3 detect_ci_matching_branch.py "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"; then
+  GZDEV_TRY_BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+fi
+
+git clone https://github.com/osrf/gzdev /tmp/gzdev
+if [ -n "${GZDEV_TRY_BRANCH}" ]; then
+  git -C /tmp/gzdev checkout ${GZDEV_TRY_BRANCH} || true
+fi
+pip3 install -r /tmp/gzdev/requirements.txt
+/tmp/gzdev/gzdev.py \
+  repository enable --project="${PACKAGE}${PACKAGE_MAJOR_VERSION}"
+
+apt-get update 2>&1
+echo ::endgroup::
+
+echo ::group::Install tools: pip
+pip3 install -U pip vcstool colcon-common-extensions
+echo ::endgroup::
+
+if [ -f "$SOURCE_DEPENDENCIES" ] || [ -f "$SOURCE_DEPENDENCIES_VERSIONED" ] ; then
+  echo ::group::Fetch source dependencies
+  mkdir -p deps/src
+  if [ -f "$SOURCE_DEPENDENCIES" ] ; then
+    vcs import deps/src < $SOURCE_DEPENDENCIES
+  fi
+  if [ -f "$SOURCE_DEPENDENCIES_VERSIONED" ] ; then
+    vcs import deps/src < $SOURCE_DEPENDENCIES_VERSIONED
+  fi
+  echo ::endgroup::
+fi
+
+echo ::group::Install dependencies from binaries
+apt -y install \
+  $OLD_APT_DEPENDENCIES \
+  $(sort -u $(find . -iname 'packages-'$SYSTEM_VERSION'.apt' -o -iname 'packages.apt') | tr '\n' ' ')
+echo ::endgroup::
+
+if [ -f "$SCRIPT_BEFORE_DEP_COMPILATION" ] || [ -f "$SCRIPT_BEFORE_DEP_COMPILATION_VERSIONED" ] ; then
+  echo ::group::Script before dependencies compilation from source
+  if [ -f "$SCRIPT_BEFORE_DEP_COMPILATION" ] ; then
+    . $SCRIPT_BEFORE_DEP_COMPILATION
+  fi
+  if [ -f "$SCRIPT_BEFORE_DEP_COMPILATION_VERSIONED" ] ; then
+    . $SCRIPT_BEFORE_DEP_COMPILATION_VERSIONED
+  fi
+  echo ::endgroup::
+fi
+
+if [ -f "$SOURCE_DEPENDENCIES" ] || [ -f "$SOURCE_DEPENDENCIES_VERSIONED" ] ; then
+  echo ::group::Compile dependencies from source
+  cd deps
+  colcon build --symlink-install --merge-install --cmake-args -DBUILD_TESTING=false
+  . install/setup.sh
+  cd ..
+  echo ::endgroup::
+fi
+
 echo ::group::Build folder
 mkdir build
 cd build
 echo ::endgroup::
 
+if [ -f "$SCRIPT_BEFORE_CMAKE" ] || [ -f "$SCRIPT_BEFORE_CMAKE_VERSIONED" ] ; then
+  echo ::group::Script before cmake
+  if [ -f "$SCRIPT_BEFORE_CMAKE" ] ; then
+    . $SCRIPT_BEFORE_CMAKE
+  fi
+  if [ -f "$SCRIPT_BEFORE_CMAKE_VERSIONED" ] ; then
+    . $SCRIPT_BEFORE_CMAKE_VERSIONED
+  fi
+  echo ::endgroup::
+fi
 
 echo ::group::cmake
 if [ -n "$CODECOV_ENABLED" ] && ${CODECOV_ENABLED} ; then
@@ -125,8 +199,6 @@ if [ -n "$TESTS_ENABLED" ] && ${TESTS_ENABLED} ; then
   echo ::group::make test
   export CTEST_OUTPUT_ON_FAILURE=1
   cd "$GITHUB_WORKSPACE"/build
-  cat /proc/sys/kernel/core_pattern
-  ulimit -c unlimited
   make test
   echo ::endgroup::
 fi
