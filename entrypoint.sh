@@ -125,6 +125,7 @@ if [ -n "$TESTS_ENABLED" ] && ${TESTS_ENABLED} ; then
   echo ::group::make test
   export CTEST_OUTPUT_ON_FAILURE=1
   cd "$GITHUB_WORKSPACE"/build
+  sudo bash -c "echo \"$GITHUB_WORKSPACE/cores/%e.%p.%t\" > /proc/sys/kernel/core_pattern"
   ulimit -c unlimited
   make test
   echo ::endgroup::
